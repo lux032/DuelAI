@@ -9,6 +9,7 @@
 - 支持 AI-A / AI-B / 裁判 三角色独立配置
 - 支持 OpenAI 兼容接口与 Claude 接口
 - 支持在线拉取模型列表，也支持手动填写模型名称
+- 支持可选 Tavily 联网搜索（仅用于首次观点生成，且由 AI 自主决定是否搜索及搜索词）
 - 自动判定双方观点是否存在矛盾
 - 多回合攻防辩论
 - 裁判最终总结
@@ -19,7 +20,8 @@
 1. 打开 `index.html`
 2. 分别填写 AI-A、AI-B、裁判的 API Key
 3. 选择或手动填写模型，并输入议题
-4. 点击“开始”
+4. （可选）填写 Tavily API Key，用于首次观点生成时联网参考
+5. 点击“开始”
 
 ### 页面预览
 
@@ -36,6 +38,7 @@ A lightweight AI debate playground: connect APIs, let AI-A and AI-B generate ini
 - Independent configuration for AI-A / AI-B / Judge
 - Supports OpenAI-compatible APIs and Claude APIs
 - Fetch model lists online, with manual model name input fallback
+- Optional Tavily web search (used only for the initial view generation, with AI deciding whether and what to search)
 - Automatic conflict detection between initial views
 - Multi-round debate flow
 - Final judge summary
@@ -46,4 +49,5 @@ A lightweight AI debate playground: connect APIs, let AI-A and AI-B generate ini
 1. Open `index.html`
 2. Fill API keys for AI-A, AI-B, and Judge
 3. Select or manually enter models, then enter a topic
-4. Click "Start"
+4. (Optional) Fill Tavily API Key for web references in initial views
+5. Click "Start"

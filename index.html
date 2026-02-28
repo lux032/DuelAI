@@ -101,6 +101,7 @@ button#startBtn:disabled { background: #333; cursor: not-allowed; }
   <div class="bottom-row">
     <div><label data-i18n="topic">议题</label><input id="topic" data-i18n-ph="topic_ph" placeholder="例如：人工智能是否会取代人类工作？"></div>
     <div style="max-width:120px"><label data-i18n="rounds">最大回合数</label><input id="rounds" type="number" value="3" min="1" max="10"></div>
+    <div><label data-i18n="tavily_key">Tavily API Key（可选）</label><input id="tavilyKey" type="password" data-i18n-ph="tavily_key_ph" placeholder="tvly-..."></div>
   </div>
   <button id="startBtn" onclick="start()" data-i18n="start">开始</button>
 </div>
@@ -116,16 +117,24 @@ const I = {
     title: 'AI 辩论场', judge: '裁判', fmt: 'API 格式', openai_compat: 'OpenAI 兼容',
     url: 'API 地址', fetch: '获取模型', fetching: '获取中...', model: '模型', model_ph: '可手动填写或从列表选择',
     topic: '议题', topic_ph: '例如：人工智能是否会取代人类工作？', rounds: '最大回合数',
+    tavily_key: 'Tavily API Key（可选）', tavily_key_ph: '留空则不联网搜索',
     start: '开始', fill_topic: '请填写议题', fill_keys: '请填写所有 API Key', fill_models: '请填写所有模型名称',
     fill_key: '请先填写 API Key', no_models: '未获取到模型列表（可手动填写模型名）', fetch_fail: '获取失败: ',
     thinking_a: 'AI-A 正在思考观点...', thinking_b: 'AI-B 正在思考观点...',
+    planning_search_a: 'AI-A 正在决定是否需要联网搜索...',
+    planning_search_b: 'AI-B 正在决定是否需要联网搜索...',
+    searching_query_a: (q) => `AI-A 正在通过 Tavily 搜索：${q}`,
+    searching_query_b: (q) => `AI-B 正在通过 Tavily 搜索：${q}`,
+    search_plan_fail_a: 'AI-A 联网搜索计划失败，将直接基于议题生成观点：',
+    search_plan_fail_b: 'AI-B 联网搜索计划失败，将直接基于议题生成观点：',
     judging: '裁判正在判定是否存在矛盾...', no_conflict: '双方观点一致，无需辩论。',
     conflict_found: (r) => `检测到矛盾，开始辩论！共 ${r} 回合`,
     round: (i, r) => `第 ${i}/${r} 回合`,
     view_a: '观点', view_b: '观点', judge_check: '裁判判定',
     round_a: (i) => `AI-A 第${i}回合`, round_b: (i) => `AI-B 第${i}回合`,
     summarizing: '裁判正在做最终总结...', summary: '裁判总结', done: '辩论结束', error: '出错: ',
-    sys_view: '请对以下议题给出你的观点，简洁有力，200字以内。',
+    sys_view: '请对以下议题给出你的观点，简洁有力，200字以内。若提供了参考资料，请优先使用其中信息并保持可核验。',
+    sys_search_plan: '你可以按需使用联网搜索辅助观点形成。请先判断是否需要搜索，再给出最多3条搜索词。只输出 JSON：{"need_search": true/false, "queries": ["..."]}。不要输出任何额外文字。',
     sys_judge: '你是一个辩论裁判。判断以下两个观点是否存在矛盾或分歧。如果存在，回复格式为：\n矛盾：是\n矛盾焦点：（一句话描述矛盾点）\n如果不存在实质矛盾，回复：\n矛盾：否',
     sys_debate: (v) => `你正在参与一场辩论。你的初始观点：${v}\n对方会反驳你，你需要坚持并强化自己的立场，同时指出对方的漏洞。每次回复200字以内。`,
     rebut: (msg) => `对方说：${msg}\n请反驳：`,
@@ -139,16 +148,24 @@ const I = {
     title: 'AI Debate Arena', judge: 'Judge', fmt: 'API Format', openai_compat: 'OpenAI Compatible',
     url: 'API URL', fetch: 'Fetch Models', fetching: 'Fetching...', model: 'Model', model_ph: 'Type manually or pick from list',
     topic: 'Topic', topic_ph: 'e.g. Will AI replace human jobs?', rounds: 'Max Rounds',
+    tavily_key: 'Tavily API Key (Optional)', tavily_key_ph: 'Leave empty to skip web search',
     start: 'Start', fill_topic: 'Please enter a topic', fill_keys: 'Please fill in all API Keys', fill_models: 'Please fill in all model names',
     fill_key: 'Please enter API Key first', no_models: 'No models found (you can still type model name manually)', fetch_fail: 'Fetch failed: ',
     thinking_a: 'AI-A is thinking...', thinking_b: 'AI-B is thinking...',
+    planning_search_a: 'AI-A is deciding whether web search is needed...',
+    planning_search_b: 'AI-B is deciding whether web search is needed...',
+    searching_query_a: (q) => `AI-A is searching via Tavily: ${q}`,
+    searching_query_b: (q) => `AI-B is searching via Tavily: ${q}`,
+    search_plan_fail_a: 'AI-A search planning failed. Proceeding without web references: ',
+    search_plan_fail_b: 'AI-B search planning failed. Proceeding without web references: ',
     judging: 'Judge is checking for conflicts...', no_conflict: 'No conflict found. Debate skipped.',
     conflict_found: (r) => `Conflict detected! Starting debate: ${r} rounds`,
     round: (i, r) => `Round ${i}/${r}`,
     view_a: 'View', view_b: 'View', judge_check: 'Judge Ruling',
     round_a: (i) => `AI-A Round ${i}`, round_b: (i) => `AI-B Round ${i}`,
     summarizing: 'Judge is summarizing...', summary: 'Judge Summary', done: 'Debate ended', error: 'Error: ',
-    sys_view: 'Give your opinion on the following topic. Be concise and clear, within 150 words.',
+    sys_view: 'Give your opinion on the following topic. Be concise and clear, within 150 words. If references are provided, prefer using verifiable points from them.',
+    sys_search_plan: 'You may use web search if needed to improve your initial view. First decide whether search is needed, then provide up to 3 search queries. Output JSON only: {"need_search": true/false, "queries": ["..."]}. No extra text.',
     sys_judge: 'You are a debate judge. Determine if the two views below conflict. If yes, reply:\nConflict: Yes\nFocus: (one sentence)\nIf no real conflict:\nConflict: No',
     sys_debate: (v) => `You are in a debate. Your initial view: ${v}\nThe opponent will rebut you. Defend and strengthen your position while pointing out flaws in theirs. Keep each reply under 150 words.`,
     rebut: (msg) => `Opponent said: ${msg}\nPlease rebut:`,
@@ -160,6 +177,83 @@ const I = {
   }
 };
 const t = (k) => I[lang][k];
+
+function buildViewPrompt(topic, refsText) {
+  if (!refsText) return t('topic_prefix')(topic);
+  if (lang === 'zh') {
+    return `${t('topic_prefix')(topic)}\n\n参考资料（来自 Tavily 搜索）：\n${refsText}\n\n请基于以上参考信息形成你的观点。`;
+  }
+  return `${t('topic_prefix')(topic)}\n\nReferences (from Tavily search):\n${refsText}\n\nForm your view with these references.`;
+}
+
+function parseSearchPlan(text) {
+  const raw = (text || '').trim();
+  const m = raw.match(/\{[\s\S]*\}/);
+  if (!m) return { need_search: false, queries: [] };
+  try {
+    const plan = JSON.parse(m[0]);
+    const needSearch = !!plan.need_search;
+    const queries = Array.isArray(plan.queries)
+      ? plan.queries.map(q => String(q || '').trim()).filter(Boolean).slice(0, 3)
+      : [];
+    return { need_search: needSearch, queries };
+  } catch {
+    return { need_search: false, queries: [] };
+  }
+}
+
+async function fetchTavilyRefs(query, tavilyKey) {
+  if (!tavilyKey) return '';
+  const res = await fetch('https://api.tavily.com/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      api_key: tavilyKey,
+      query,
+      search_depth: 'basic',
+      max_results: 3
+    })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  const results = data.results || [];
+  return results.map((it, idx) => {
+    const title = it.title || 'Untitled';
+    const content = (it.content || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+    const url = it.url || '';
+    return `${idx + 1}. ${title}\n${content}\n${url}`;
+  }).join('\n\n');
+}
+
+async function generateInitialView(r, topic, tavilyKey) {
+  let refsText = '';
+  if (tavilyKey) {
+    const isA = r === 'A';
+    addStatus(t(isA ? 'planning_search_a' : 'planning_search_b'));
+    try {
+      const planText = await chat([
+        { role: 'system', content: t('sys_search_plan') },
+        { role: 'user', content: t('topic_prefix')(topic) }
+      ], r);
+      const plan = parseSearchPlan(planText);
+      if (plan.need_search && plan.queries.length) {
+        const blocks = [];
+        for (const q of plan.queries) {
+          addStatus(t(isA ? 'searching_query_a' : 'searching_query_b')(q));
+          const one = await fetchTavilyRefs(q, tavilyKey);
+          if (one) blocks.push(`Query: ${q}\n${one}`);
+        }
+        refsText = blocks.join('\n\n');
+      }
+    } catch (e) {
+      addStatus(t(isA ? 'search_plan_fail_a' : 'search_plan_fail_b') + e.message);
+    }
+  }
+  return chat([
+    { role: 'system', content: t('sys_view') },
+    { role: 'user', content: buildViewPrompt(topic, refsText) }
+  ], r);
+}
 
 function setLang(l) {
   lang = l;
@@ -255,6 +349,7 @@ async function chat(messages, r) {
 async function start() {
   const topic = $('topic').value.trim();
   const rounds = parseInt($('rounds').value);
+  const tavilyKey = $('tavilyKey').value.trim();
   if (!topic) return alert(t('fill_topic'));
   if (!$('keyA').value || !$('keyB').value || !$('keyJ').value) return alert(t('fill_keys'));
   if (!$('mdlA').value.trim() || !$('mdlB').value.trim() || !$('mdlJ').value.trim()) return alert(t('fill_models'));
@@ -265,17 +360,11 @@ async function start() {
 
   try {
     addStatus(t('thinking_a'));
-    const viewA = await chat([
-      { role: 'system', content: t('sys_view') },
-      { role: 'user', content: t('topic_prefix')(topic) }
-    ], 'A');
+    const viewA = await generateInitialView('A', topic, tavilyKey);
     addMsg(`AI-A(${nA}) ${t('view_a')}`, viewA, 'a');
 
     addStatus(t('thinking_b'));
-    const viewB = await chat([
-      { role: 'system', content: t('sys_view') },
-      { role: 'user', content: t('topic_prefix')(topic) }
-    ], 'B');
+    const viewB = await generateInitialView('B', topic, tavilyKey);
     addMsg(`AI-B(${nB}) ${t('view_b')}`, viewB, 'b');
 
     addStatus(t('judging'));
