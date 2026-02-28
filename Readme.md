@@ -21,6 +21,16 @@
 3. 选择或手动填写模型，并输入议题
 4. 点击“开始”
 
+### GitHub Pages 一键在线访问
+
+本项目是纯静态页面，可直接部署到 GitHub Pages，用户点链接即可使用。
+
+1. 将仓库推送到 GitHub（默认分支 `main` 或 `master`）
+2. 仓库中已包含工作流：`.github/workflows/deploy-pages.yml`
+3. 在 GitHub 仓库中打开：`Settings -> Pages`，`Source` 选择 `GitHub Actions`
+4. 首次推送后等待 Actions 执行完成，即可通过以下地址访问：
+   `https://<你的GitHub用户名>.github.io/<仓库名>/`
+
 ### 页面预览
 
 ![DuelAI Preview](./index.png)
@@ -47,3 +57,13 @@ A lightweight AI debate playground: connect APIs, let AI-A and AI-B generate ini
 2. Fill API keys for AI-A, AI-B, and Judge
 3. Select or manually enter models, then enter a topic
 4. Click "Start"
+
+### Deploy To GitHub Pages
+
+This project is a static site and can be hosted on GitHub Pages so users can open it directly via URL.
+
+1. Push this repo to GitHub (`main` or `master`)
+2. The workflow is included at `.github/workflows/deploy-pages.yml`
+3. In your repo, go to `Settings -> Pages`, and set `Source` to `GitHub Actions`
+4. After the first successful Actions run, open:
+   `https://<your-github-username>.github.io/<repo-name>/`
