@@ -10,6 +10,7 @@
 - 支持 OpenAI 兼容接口与 Claude 接口
 - 支持在线拉取模型列表，也支持手动填写模型名称
 - 支持可选 Tavily 联网搜索（仅用于首次观点生成，且由 AI 自主决定是否搜索及搜索词）
+- 自动注入当前系统时间上下文，减少“今天/今年/最近”时间理解偏差
 - 自动判定双方观点是否存在矛盾
 - 多回合攻防辩论
 - 裁判最终总结
@@ -39,6 +40,7 @@ A lightweight AI debate playground: connect APIs, let AI-A and AI-B generate ini
 - Supports OpenAI-compatible APIs and Claude APIs
 - Fetch model lists online, with manual model name input fallback
 - Optional Tavily web search (used only for the initial view generation, with AI deciding whether and what to search)
+- Injects current system-time context to reduce ambiguity for terms like "today/this year/recent"
 - Automatic conflict detection between initial views
 - Multi-round debate flow
 - Final judge summary

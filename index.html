@@ -135,6 +135,7 @@ const I = {
     summarizing: '裁判正在做最终总结...', summary: '裁判总结', done: '辩论结束', error: '出错: ',
     sys_view: '请对以下议题给出你的观点，简洁有力，200字以内。若提供了参考资料，请优先使用其中信息并保持可核验。',
     sys_search_plan: '你可以按需使用联网搜索辅助观点形成。请先判断是否需要搜索，再给出最多3条搜索词。只输出 JSON：{"need_search": true/false, "queries": ["..."]}。不要输出任何额外文字。',
+    sys_time: (iso, local, tz) => `时间上下文（务必遵守）：当前系统时间为 ${local}（时区：${tz}，ISO：${iso}）。你在理解“今天/今年/最近”等相对时间时，必须以这个时间为准，不要默认往年。`,
     sys_judge: '你是一个辩论裁判。判断以下两个观点是否存在矛盾或分歧。如果存在，回复格式为：\n矛盾：是\n矛盾焦点：（一句话描述矛盾点）\n如果不存在实质矛盾，回复：\n矛盾：否',
     sys_debate: (v) => `你正在参与一场辩论。你的初始观点：${v}\n对方会反驳你，你需要坚持并强化自己的立场，同时指出对方的漏洞。每次回复200字以内。`,
     rebut: (msg) => `对方说：${msg}\n请反驳：`,
@@ -166,6 +167,7 @@ const I = {
     summarizing: 'Judge is summarizing...', summary: 'Judge Summary', done: 'Debate ended', error: 'Error: ',
     sys_view: 'Give your opinion on the following topic. Be concise and clear, within 150 words. If references are provided, prefer using verifiable points from them.',
     sys_search_plan: 'You may use web search if needed to improve your initial view. First decide whether search is needed, then provide up to 3 search queries. Output JSON only: {"need_search": true/false, "queries": ["..."]}. No extra text.',
+    sys_time: (iso, local, tz) => `Time context (must follow): current system time is ${local} (timezone: ${tz}, ISO: ${iso}). When interpreting relative dates like "today", "this year", or "recent", anchor to this exact time and do not default to past years.`,
     sys_judge: 'You are a debate judge. Determine if the two views below conflict. If yes, reply:\nConflict: Yes\nFocus: (one sentence)\nIf no real conflict:\nConflict: No',
     sys_debate: (v) => `You are in a debate. Your initial view: ${v}\nThe opponent will rebut you. Defend and strengthen your position while pointing out flaws in theirs. Keep each reply under 150 words.`,
     rebut: (msg) => `Opponent said: ${msg}\nPlease rebut:`,
@@ -177,6 +179,14 @@ const I = {
   }
 };
 const t = (k) => I[lang][k];
+
+function getTimeContext() {
+  const now = new Date();
+  const iso = now.toISOString();
+  const local = now.toLocaleString();
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
+  return { iso, local, tz };
+}
 
 function buildViewPrompt(topic, refsText) {
   if (!refsText) return t('topic_prefix')(topic);
@@ -225,13 +235,14 @@ async function fetchTavilyRefs(query, tavilyKey) {
   }).join('\n\n');
 }
 
-async function generateInitialView(r, topic, tavilyKey) {
+async function generateInitialView(r, topic, tavilyKey, timePrompt) {
   let refsText = '';
   if (tavilyKey) {
     const isA = r === 'A';
     addStatus(t(isA ? 'planning_search_a' : 'planning_search_b'));
     try {
       const planText = await chat([
+        { role: 'system', content: timePrompt },
         { role: 'system', content: t('sys_search_plan') },
         { role: 'user', content: t('topic_prefix')(topic) }
       ], r);
@@ -250,6 +261,7 @@ async function generateInitialView(r, topic, tavilyKey) {
     }
   }
   return chat([
+    { role: 'system', content: timePrompt },
     { role: 'system', content: t('sys_view') },
     { role: 'user', content: buildViewPrompt(topic, refsText) }
   ], r);
@@ -324,7 +336,7 @@ async function chat(messages, r) {
   const model = $('mdl'+r).value, url = $('url'+r).value;
 
   if (fmt === 'claude') {
-    const sys = messages.find(m => m.role === 'system')?.content || '';
+    const sys = messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
     const msgs = messages.filter(m => m.role !== 'system');
     const res = await fetch(url, {
       method: 'POST',
@@ -350,6 +362,8 @@ async function start() {
   const topic = $('topic').value.trim();
   const rounds = parseInt($('rounds').value);
   const tavilyKey = $('tavilyKey').value.trim();
+  const tc = getTimeContext();
+  const timePrompt = t('sys_time')(tc.iso, tc.local, tc.tz);
   if (!topic) return alert(t('fill_topic'));
   if (!$('keyA').value || !$('keyB').value || !$('keyJ').value) return alert(t('fill_keys'));
   if (!$('mdlA').value.trim() || !$('mdlB').value.trim() || !$('mdlJ').value.trim()) return alert(t('fill_models'));
@@ -360,15 +374,16 @@ async function start() {
 
   try {
     addStatus(t('thinking_a'));
-    const viewA = await generateInitialView('A', topic, tavilyKey);
+    const viewA = await generateInitialView('A', topic, tavilyKey, timePrompt);
     addMsg(`AI-A(${nA}) ${t('view_a')}`, viewA, 'a');
 
     addStatus(t('thinking_b'));
-    const viewB = await generateInitialView('B', topic, tavilyKey);
+    const viewB = await generateInitialView('B', topic, tavilyKey, timePrompt);
     addMsg(`AI-B(${nB}) ${t('view_b')}`, viewB, 'b');
 
     addStatus(t('judging'));
     const judgeCheck = await chat([
+      { role: 'system', content: timePrompt },
       { role: 'system', content: t('sys_judge') },
       { role: 'user', content: t('views_pair')(viewA, viewB) }
     ], 'J');
@@ -381,8 +396,14 @@ async function start() {
     }
 
     addStatus(t('conflict_found')(rounds));
-    const historyA = [{ role: 'system', content: t('sys_debate')(viewA) }];
-    const historyB = [{ role: 'system', content: t('sys_debate')(viewB) }];
+    const historyA = [
+      { role: 'system', content: timePrompt },
+      { role: 'system', content: t('sys_debate')(viewA) }
+    ];
+    const historyB = [
+      { role: 'system', content: timePrompt },
+      { role: 'system', content: t('sys_debate')(viewB) }
+    ];
     let lastMsg = viewB;
 
     for (let i = 1; i <= rounds; i++) {
@@ -401,6 +422,7 @@ async function start() {
 
     addStatus(t('summarizing'));
     const summary = await chat([
+      { role: 'system', content: timePrompt },
       { role: 'system', content: t('sys_summary') },
       { role: 'user', content: arena.innerText }
     ], 'J');
