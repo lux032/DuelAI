@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 辩论场</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #111; color: #ddd; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+h1 { margin-bottom: 20px; color: #ccc; }
+.top-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.lang-btn { background: #1a1a1a; color: #888; border: 1px solid #444; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.lang-btn.active { color: #ccc; border-color: #888; }
+.config { background: #1a1a1a; padding: 20px; border-radius: 12px; width: 100%; max-width: 900px; margin-bottom: 20px; }
+.config label { display: block; margin-bottom: 4px; font-size: 13px; color: #aaa; }
+.config input, .config select { width: 100%; padding: 7px 10px; border: 1px solid #444; border-radius: 6px; background: #222; color: #ddd; margin-bottom: 8px; font-size: 13px; }
+.role-cards { display: flex; gap: 12px; margin-bottom: 12px; }
+.role-card { flex: 1; background: #222; border-radius: 8px; padding: 12px; }
+.role-card h3 { font-size: 14px; margin-bottom: 8px; }
+.role-card.card-a h3 { color: #aaa; }
+.role-card.card-b h3 { color: #999; }
+.role-card.card-j h3 { color: #bbb; }
+.fetch-btn { background: #222; color: #aaa; border: 1px solid #555; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; width: 100%; margin-bottom: 8px; }
+.fetch-btn:hover { background: #333; }
+.fetch-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.bottom-row { display: flex; gap: 12px; }
+.bottom-row > div { flex: 1; }
+button#startBtn { padding: 10px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 600; background: #444; color: #eee; width: 100%; margin-top: 4px; }
+button#startBtn:hover { background: #555; }
+button#startBtn:disabled { background: #333; cursor: not-allowed; }
+.arena { width: 100%; max-width: 900px; }
+.msg { padding: 14px 18px; border-radius: 12px; margin-bottom: 12px; line-height: 1.6; white-space: pre-wrap; animation: fadeIn 0.3s; }
+.msg-a { background: #1e1e1e; border-left: 4px solid #888; }
+.msg-b { background: #252525; border-left: 4px solid #666; }
+.msg-judge { background: #2a2a2a; border-left: 4px solid #aaa; }
+.msg .role { font-weight: 700; margin-bottom: 6px; font-size: 13px; }
+.msg-a .role { color: #999; }
+.msg-b .role { color: #777; }
+.msg-judge .role { color: #bbb; }
+.status { text-align: center; color: #888; margin: 16px 0; font-size: 14px; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <h1 data-i18n="title">AI 辩论场</h1>
+  <button class="lang-btn active" onclick="setLang('zh')">中文</button>
+  <button class="lang-btn" onclick="setLang('en')">EN</button>
+</div>
+<div class="config">
+  <div class="role-cards">
+    <div class="role-card card-a">
+      <h3>AI-A</h3>
+      <label data-i18n="fmt">API 格式</label>
+      <select id="fmtA" onchange="onFmtChange('A')">
+        <option value="openai" data-i18n="openai_compat">OpenAI 兼容</option>
+        <option value="claude">Claude</option>
+      </select>
+      <label data-i18n="url">API 地址</label>
+      <input id="urlA" value="https://api.openai.com/v1/chat/completions">
+      <label>API Key</label>
+      <input id="keyA" type="password" placeholder="sk-...">
+      <button class="fetch-btn" onclick="fetchModels('A')" data-i18n="fetch">获取模型</button>
+      <label data-i18n="model">模型</label>
+      <select id="mdlA"><option>gpt-4o-mini</option></select>
+    </div>
+    <div class="role-card card-b">
+      <h3>AI-B</h3>
+      <label data-i18n="fmt">API 格式</label>
+      <select id="fmtB" onchange="onFmtChange('B')">
+        <option value="openai" data-i18n="openai_compat">OpenAI 兼容</option>
+        <option value="claude">Claude</option>
+      </select>
+      <label data-i18n="url">API 地址</label>
+      <input id="urlB" value="https://api.openai.com/v1/chat/completions">
+      <label>API Key</label>
+      <input id="keyB" type="password" placeholder="sk-...">
+      <button class="fetch-btn" onclick="fetchModels('B')" data-i18n="fetch">获取模型</button>
+      <label data-i18n="model">模型</label>
+      <select id="mdlB"><option>gpt-4o-mini</option></select>
+    </div>
+    <div class="role-card card-j">
+      <h3 data-i18n="judge">裁判</h3>
+      <label data-i18n="fmt">API 格式</label>
+      <select id="fmtJ" onchange="onFmtChange('J')">
+        <option value="openai" data-i18n="openai_compat">OpenAI 兼容</option>
+        <option value="claude">Claude</option>
+      </select>
+      <label data-i18n="url">API 地址</label>
+      <input id="urlJ" value="https://api.openai.com/v1/chat/completions">
+      <label>API Key</label>
+      <input id="keyJ" type="password" placeholder="sk-...">
+      <button class="fetch-btn" onclick="fetchModels('J')" data-i18n="fetch">获取模型</button>
+      <label data-i18n="model">模型</label>
+      <select id="mdlJ"><option>gpt-4o-mini</option></select>
+    </div>
+  </div>
+  <div class="bottom-row">
+    <div><label data-i18n="topic">议题</label><input id="topic" data-i18n-ph="topic_ph" placeholder="例如：人工智能是否会取代人类工作？"></div>
+    <div style="max-width:120px"><label data-i18n="rounds">最大回合数</label><input id="rounds" type="number" value="3" min="1" max="10"></div>
+  </div>
+  <button id="startBtn" onclick="start()" data-i18n="start">开始</button>
+</div>
+<div class="arena" id="arena"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const arena = $('arena');
+
+let lang = 'zh';
+const I = {
+  zh: {
+    title: 'AI 辩论场', judge: '裁判', fmt: 'API 格式', openai_compat: 'OpenAI 兼容',
+    url: 'API 地址', fetch: '获取模型', fetching: '获取中...', model: '模型',
+    topic: '议题', topic_ph: '例如：人工智能是否会取代人类工作？', rounds: '最大回合数',
+    start: '开始', fill_topic: '请填写议题', fill_keys: '请填写所有 API Key',
+    fill_key: '请先填写 API Key', no_models: '未获取到模型列表', fetch_fail: '获取失败: ',
+    thinking_a: 'AI-A 正在思考观点...', thinking_b: 'AI-B 正在思考观点...',
+    judging: '裁判正在判定是否存在矛盾...', no_conflict: '双方观点一致，无需辩论。',
+    conflict_found: (r) => `检测到矛盾，开始辩论！共 ${r} 回合`,
+    round: (i, r) => `第 ${i}/${r} 回合`,
+    view_a: '观点', view_b: '观点', judge_check: '裁判判定',
+    round_a: (i) => `AI-A 第${i}回合`, round_b: (i) => `AI-B 第${i}回合`,
+    summarizing: '裁判正在做最终总结...', summary: '裁判总结', done: '辩论结束', error: '出错: ',
+    sys_view: '请对以下议题给出你的观点，简洁有力，200字以内。',
+    sys_judge: '你是一个辩论裁判。判断以下两个观点是否存在矛盾或分歧。如果存在，回复格式为：\n矛盾：是\n矛盾焦点：（一句话描述矛盾点）\n如果不存在实质矛盾，回复：\n矛盾：否',
+    sys_debate: (v) => `你正在参与一场辩论。你的初始观点：${v}\n对方会反驳你，你需要坚持并强化自己的立场，同时指出对方的漏洞。每次回复200字以内。`,
+    rebut: (msg) => `对方说：${msg}\n请反驳：`,
+    sys_summary: '你是辩论裁判。请根据以下辩论全文，总结双方表现，指出各自的亮点和不足，并给出你的最终判定。300字以内。',
+    export: '导出文本',
+    topic_prefix: (t) => `议题：${t}`,
+    views_pair: (a, b) => `观点A：${a}\n\n观点B：${b}`,
+    conflict_yes: '矛盾：是'
+  },
+  en: {
+    title: 'AI Debate Arena', judge: 'Judge', fmt: 'API Format', openai_compat: 'OpenAI Compatible',
+    url: 'API URL', fetch: 'Fetch Models', fetching: 'Fetching...', model: 'Model',
+    topic: 'Topic', topic_ph: 'e.g. Will AI replace human jobs?', rounds: 'Max Rounds',
+    start: 'Start', fill_topic: 'Please enter a topic', fill_keys: 'Please fill in all API Keys',
+    fill_key: 'Please enter API Key first', no_models: 'No models found', fetch_fail: 'Fetch failed: ',
+    thinking_a: 'AI-A is thinking...', thinking_b: 'AI-B is thinking...',
+    judging: 'Judge is checking for conflicts...', no_conflict: 'No conflict found. Debate skipped.',
+    conflict_found: (r) => `Conflict detected! Starting debate: ${r} rounds`,
+    round: (i, r) => `Round ${i}/${r}`,
+    view_a: 'View', view_b: 'View', judge_check: 'Judge Ruling',
+    round_a: (i) => `AI-A Round ${i}`, round_b: (i) => `AI-B Round ${i}`,
+    summarizing: 'Judge is summarizing...', summary: 'Judge Summary', done: 'Debate ended', error: 'Error: ',
+    sys_view: 'Give your opinion on the following topic. Be concise and clear, within 150 words.',
+    sys_judge: 'You are a debate judge. Determine if the two views below conflict. If yes, reply:\nConflict: Yes\nFocus: (one sentence)\nIf no real conflict:\nConflict: No',
+    sys_debate: (v) => `You are in a debate. Your initial view: ${v}\nThe opponent will rebut you. Defend and strengthen your position while pointing out flaws in theirs. Keep each reply under 150 words.`,
+    rebut: (msg) => `Opponent said: ${msg}\nPlease rebut:`,
+    sys_summary: 'You are a debate judge. Summarize both sides\' performance, highlight strengths and weaknesses, and give your final verdict. Within 200 words.',
+    export: 'Export Text',
+    topic_prefix: (t) => `Topic: ${t}`,
+    views_pair: (a, b) => `View A: ${a}\n\nView B: ${b}`,
+    conflict_yes: 'Conflict: Yes'
+  }
+};
+const t = (k) => I[lang][k];
+
+function setLang(l) {
+  lang = l;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.textContent === (l === 'zh' ? '中文' : 'EN')));
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+}
+
+function onFmtChange(r) {
+  const fmt = $('fmt'+r).value;
+  if (fmt === 'claude') {
+    $('url'+r).value = 'https://api.anthropic.com/v1/messages';
+    $('mdl'+r).innerHTML = '<option>claude-sonnet-4-20250514</option>';
+  } else {
+    $('url'+r).value = 'https://api.openai.com/v1/chat/completions';
+    $('mdl'+r).innerHTML = '<option>gpt-4o-mini</option>';
+  }
+}
+
+async function fetchModels(r) {
+  const fmt = $('fmt'+r).value, key = $('key'+r).value, btn = event.target;
+  if (!key) return alert(t('fill_key'));
+  btn.disabled = true; btn.textContent = t('fetching');
+  try {
+    let models;
+    if (fmt === 'claude') {
+      const res = await fetch('https://api.anthropic.com/v1/models', {
+        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }
+      });
+      models = ((await res.json()).data || []).map(m => m.id).sort();
+    } else {
+      const base = $('url'+r).value.replace(/\/chat\/completions\/?$/, '');
+      const res = await fetch(base + '/models', { headers: { 'Authorization': `Bearer ${key}` } });
+      models = ((await res.json()).data || []).map(m => m.id).sort();
+    }
+    if (models.length) $('mdl'+r).innerHTML = models.map(m => `<option>${m}</option>`).join('');
+    else alert(t('no_models'));
+  } catch(e) { alert(t('fetch_fail') + e.message); }
+  btn.disabled = false; btn.textContent = t('fetch');
+}
+
+function addMsg(role, text, type) {
+  const d = document.createElement('div');
+  d.className = `msg msg-${type}`;
+  d.innerHTML = `<div class="role">${role}</div>${text}`;
+  arena.appendChild(d);
+  d.scrollIntoView({ behavior: 'smooth' });
+}
+
+function addStatus(text) {
+  const d = document.createElement('div');
+  d.className = 'status';
+  d.textContent = text;
+  arena.appendChild(d);
+}
+
+async function chat(messages, r) {
+  const fmt = $('fmt'+r).value, key = $('key'+r).value;
+  const model = $('mdl'+r).value, url = $('url'+r).value;
+
+  if (fmt === 'claude') {
+    const sys = messages.find(m => m.role === 'system')?.content || '';
+    const msgs = messages.filter(m => m.role !== 'system');
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model, max_tokens: 1024, system: sys, messages: msgs })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    return data.content[0].text;
+  }
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+    body: JSON.stringify({ model, messages })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.choices[0].message.content;
+}
+
+async function start() {
+  const topic = $('topic').value.trim();
+  const rounds = parseInt($('rounds').value);
+  if (!topic) return alert(t('fill_topic'));
+  if (!$('keyA').value || !$('keyB').value || !$('keyJ').value) return alert(t('fill_keys'));
+
+  $('startBtn').disabled = true;
+  arena.innerHTML = '';
+  const nA = $('mdlA').value, nB = $('mdlB').value, nJ = $('mdlJ').value;
+
+  try {
+    addStatus(t('thinking_a'));
+    const viewA = await chat([
+      { role: 'system', content: t('sys_view') },
+      { role: 'user', content: t('topic_prefix')(topic) }
+    ], 'A');
+    addMsg(`AI-A(${nA}) ${t('view_a')}`, viewA, 'a');
+
+    addStatus(t('thinking_b'));
+    const viewB = await chat([
+      { role: 'system', content: t('sys_view') },
+      { role: 'user', content: t('topic_prefix')(topic) }
+    ], 'B');
+    addMsg(`AI-B(${nB}) ${t('view_b')}`, viewB, 'b');
+
+    addStatus(t('judging'));
+    const judgeCheck = await chat([
+      { role: 'system', content: t('sys_judge') },
+      { role: 'user', content: t('views_pair')(viewA, viewB) }
+    ], 'J');
+    addMsg(`${t('judge_check')}(${nJ})`, judgeCheck, 'judge');
+
+    if (!judgeCheck.includes(t('conflict_yes'))) {
+      addStatus(t('no_conflict'));
+      $('startBtn').disabled = false;
+      return;
+    }
+
+    addStatus(t('conflict_found')(rounds));
+    const historyA = [{ role: 'system', content: t('sys_debate')(viewA) }];
+    const historyB = [{ role: 'system', content: t('sys_debate')(viewB) }];
+    let lastMsg = viewB;
+
+    for (let i = 1; i <= rounds; i++) {
+      addStatus(t('round')(i, rounds));
+      historyA.push({ role: 'user', content: t('rebut')(lastMsg) });
+      const replyA = await chat(historyA, 'A');
+      historyA.push({ role: 'assistant', content: replyA });
+      addMsg(t('round_a')(i), replyA, 'a');
+
+      historyB.push({ role: 'user', content: t('rebut')(replyA) });
+      const replyB = await chat(historyB, 'B');
+      historyB.push({ role: 'assistant', content: replyB });
+      addMsg(t('round_b')(i), replyB, 'b');
+      lastMsg = replyB;
+    }
+
+    addStatus(t('summarizing'));
+    const summary = await chat([
+      { role: 'system', content: t('sys_summary') },
+      { role: 'user', content: arena.innerText }
+    ], 'J');
+    addMsg(t('summary'), summary, 'judge');
+    addStatus(t('done'));
+    const eb = document.createElement('button');
+    eb.textContent = t('export');
+    eb.style.cssText = 'display:block;margin:12px auto;padding:8px 20px;background:#222;color:#aaa;border:1px solid #555;border-radius:6px;cursor:pointer;font-size:14px;';
+    eb.onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([arena.innerText],{type:'text/plain'})); a.download = 'debate.txt'; a.click(); };
+    arena.appendChild(eb);
+  } catch(e) { addStatus(t('error') + e.message); }
+  $('startBtn').disabled = false;
+}
+</script>
+</body>
+</html>
