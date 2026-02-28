@@ -62,7 +62,8 @@ button#startBtn:disabled { background: #333; cursor: not-allowed; }
       <input id="keyA" type="password" placeholder="sk-...">
       <button class="fetch-btn" onclick="fetchModels('A')" data-i18n="fetch">获取模型</button>
       <label data-i18n="model">模型</label>
-      <select id="mdlA"><option>gpt-4o-mini</option></select>
+      <input id="mdlA" list="mdlListA" data-i18n-ph="model_ph" placeholder="可手动填写或从列表选择">
+      <datalist id="mdlListA"><option value="gpt-4o-mini"></option></datalist>
     </div>
     <div class="role-card card-b">
       <h3>AI-B</h3>
@@ -77,7 +78,8 @@ button#startBtn:disabled { background: #333; cursor: not-allowed; }
       <input id="keyB" type="password" placeholder="sk-...">
       <button class="fetch-btn" onclick="fetchModels('B')" data-i18n="fetch">获取模型</button>
       <label data-i18n="model">模型</label>
-      <select id="mdlB"><option>gpt-4o-mini</option></select>
+      <input id="mdlB" list="mdlListB" data-i18n-ph="model_ph" placeholder="可手动填写或从列表选择">
+      <datalist id="mdlListB"><option value="gpt-4o-mini"></option></datalist>
     </div>
     <div class="role-card card-j">
       <h3 data-i18n="judge">裁判</h3>
@@ -92,7 +94,8 @@ button#startBtn:disabled { background: #333; cursor: not-allowed; }
       <input id="keyJ" type="password" placeholder="sk-...">
       <button class="fetch-btn" onclick="fetchModels('J')" data-i18n="fetch">获取模型</button>
       <label data-i18n="model">模型</label>
-      <select id="mdlJ"><option>gpt-4o-mini</option></select>
+      <input id="mdlJ" list="mdlListJ" data-i18n-ph="model_ph" placeholder="可手动填写或从列表选择">
+      <datalist id="mdlListJ"><option value="gpt-4o-mini"></option></datalist>
     </div>
   </div>
   <div class="bottom-row">
@@ -111,10 +114,10 @@ let lang = 'zh';
 const I = {
   zh: {
     title: 'AI 辩论场', judge: '裁判', fmt: 'API 格式', openai_compat: 'OpenAI 兼容',
-    url: 'API 地址', fetch: '获取模型', fetching: '获取中...', model: '模型',
+    url: 'API 地址', fetch: '获取模型', fetching: '获取中...', model: '模型', model_ph: '可手动填写或从列表选择',
     topic: '议题', topic_ph: '例如：人工智能是否会取代人类工作？', rounds: '最大回合数',
-    start: '开始', fill_topic: '请填写议题', fill_keys: '请填写所有 API Key',
-    fill_key: '请先填写 API Key', no_models: '未获取到模型列表', fetch_fail: '获取失败: ',
+    start: '开始', fill_topic: '请填写议题', fill_keys: '请填写所有 API Key', fill_models: '请填写所有模型名称',
+    fill_key: '请先填写 API Key', no_models: '未获取到模型列表（可手动填写模型名）', fetch_fail: '获取失败: ',
     thinking_a: 'AI-A 正在思考观点...', thinking_b: 'AI-B 正在思考观点...',
     judging: '裁判正在判定是否存在矛盾...', no_conflict: '双方观点一致，无需辩论。',
     conflict_found: (r) => `检测到矛盾，开始辩论！共 ${r} 回合`,
@@ -134,10 +137,10 @@ const I = {
   },
   en: {
     title: 'AI Debate Arena', judge: 'Judge', fmt: 'API Format', openai_compat: 'OpenAI Compatible',
-    url: 'API URL', fetch: 'Fetch Models', fetching: 'Fetching...', model: 'Model',
+    url: 'API URL', fetch: 'Fetch Models', fetching: 'Fetching...', model: 'Model', model_ph: 'Type manually or pick from list',
     topic: 'Topic', topic_ph: 'e.g. Will AI replace human jobs?', rounds: 'Max Rounds',
-    start: 'Start', fill_topic: 'Please enter a topic', fill_keys: 'Please fill in all API Keys',
-    fill_key: 'Please enter API Key first', no_models: 'No models found', fetch_fail: 'Fetch failed: ',
+    start: 'Start', fill_topic: 'Please enter a topic', fill_keys: 'Please fill in all API Keys', fill_models: 'Please fill in all model names',
+    fill_key: 'Please enter API Key first', no_models: 'No models found (you can still type model name manually)', fetch_fail: 'Fetch failed: ',
     thinking_a: 'AI-A is thinking...', thinking_b: 'AI-B is thinking...',
     judging: 'Judge is checking for conflicts...', no_conflict: 'No conflict found. Debate skipped.',
     conflict_found: (r) => `Conflict detected! Starting debate: ${r} rounds`,
@@ -167,12 +170,14 @@ function setLang(l) {
 
 function onFmtChange(r) {
   const fmt = $('fmt'+r).value;
+  const list = $('mdlList'+r);
+  list.innerHTML = '';
   if (fmt === 'claude') {
     $('url'+r).value = 'https://api.anthropic.com/v1/messages';
-    $('mdl'+r).innerHTML = '<option>claude-sonnet-4-20250514</option>';
+    list.innerHTML = '<option value="claude-sonnet-4-20250514"></option>';
   } else {
     $('url'+r).value = 'https://api.openai.com/v1/chat/completions';
-    $('mdl'+r).innerHTML = '<option>gpt-4o-mini</option>';
+    list.innerHTML = '<option value="gpt-4o-mini"></option>';
   }
 }
 
@@ -192,8 +197,15 @@ async function fetchModels(r) {
       const res = await fetch(base + '/models', { headers: { 'Authorization': `Bearer ${key}` } });
       models = ((await res.json()).data || []).map(m => m.id).sort();
     }
-    if (models.length) $('mdl'+r).innerHTML = models.map(m => `<option>${m}</option>`).join('');
-    else alert(t('no_models'));
+    if (models.length) {
+      const list = $('mdlList'+r);
+      list.innerHTML = '';
+      models.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        list.appendChild(opt);
+      });
+    } else alert(t('no_models'));
   } catch(e) { alert(t('fetch_fail') + e.message); }
   btn.disabled = false; btn.textContent = t('fetch');
 }
@@ -245,6 +257,7 @@ async function start() {
   const rounds = parseInt($('rounds').value);
   if (!topic) return alert(t('fill_topic'));
   if (!$('keyA').value || !$('keyB').value || !$('keyJ').value) return alert(t('fill_keys'));
+  if (!$('mdlA').value.trim() || !$('mdlB').value.trim() || !$('mdlJ').value.trim()) return alert(t('fill_models'));
 
   $('startBtn').disabled = true;
   arena.innerHTML = '';
